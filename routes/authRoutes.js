@@ -205,6 +205,75 @@ router.get('/getuser', authTokenHandler, async (req, res, next) => {
     }
 })
 
+// Add this route to your existing authRoutes.js file
+router.post('/delete-account-request', authTokenHandler, async (req, res) => {
+    try {
+        const { userId } = req;
+        const user = await User.findById(userId);
+        
+        if (!user) {
+            return responseFunction(res, 404, 'User not found', null, false);
+        }
+
+        // Send email to admin about deletion request
+        let transporter = nodemailer.createTransport({
+            host: "smtp.gmail.com",
+            port: 587,
+            secure: false,
+            requireTLS: true,
+            auth: {
+            user: process.env.COMPANY_EMAIL,
+            pass: process.env.GMAIL_APP_PASSWORD
+        }
+        });
+
+        const mailOptions = {
+            from: `"Educate Bharat" <${process.env.COMPANY_EMAIL}>`,
+            to: `${process.env.COMPANY_EMAIL}`,
+            subject: 'Account Deletion Request',
+            text: `User ${user.name} (${user.email}) has requested to delete their account.`,
+            html: `
+                <div>
+                    <h2>Account Deletion Request</h2>
+                    <p>A user has requested to delete their account:</p>
+                    <ul>
+                        <li><strong>Name:</strong> ${user.name}</li>
+                        <li><strong>Email:</strong> ${user.email}</li>
+                        <li><strong>Request Time:</strong> ${new Date().toLocaleString()}</li>
+                    </ul>
+                    <p>Please take appropriate action.</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        // Optionally, you could also send a confirmation email to the user
+        const userMailOptions = {
+            from: `"Educate Bharat" <${process.env.COMPANY_EMAIL}>`,
+            to: user.email,
+            subject: 'Account Deletion Request Received',
+            html: `
+                <div>
+                    <h2>Your Account Deletion Request</h2>
+                    <p>We've received your request to delete your Educate Bharat account.</p>
+                    <p>Our team will process your request shortly. If this wasn't you, please contact our support team immediately.</p>
+                    <p>Thank you for being part of Educate Bharat.</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(userMailOptions);
+
+        return responseFunction(res, 200, 'Account deletion request received. You will receive a confirmation email.', null, true);
+
+    } catch (err) {
+        console.error('Error in delete account request:', err);
+        return responseFunction(res, 500, 'Internal server error', err, false);
+    }
+});
+
+
 router.get('/test', async (req, res) => {
     // let url = await getObjectURL('hakunamatata');
     // let makankaplot = await postObjectURL('hakunamatata',"")
